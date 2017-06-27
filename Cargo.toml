@@ -1,0 +1,6 @@
+[package]
+name = "projekt-ps"
+version = "0.1.0"
+authors = ["Michał Michalczewski <michalczewski.michal@gmail.com>"]
+
+[dependencies]
