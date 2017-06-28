@@ -4,7 +4,9 @@ version = "0.1.0"
 authors = ["Michał Michalczewski <michalczewski.michal@gmail.com>"]
 
 [dependencies]
+pretty_env_logger = "0.1.1"
 getopts = "0.2"
-hyper = "~0.7"
+hyper = "0.11"
 futures = "0.1.14"
 tokio-core = "0.1"
+hyper-tls = "0.1.2"
