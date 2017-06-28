@@ -4,3 +4,7 @@ version = "0.1.0"
 authors = ["Michał Michalczewski <michalczewski.michal@gmail.com>"]
 
 [dependencies]
+getopts = "0.2"
+hyper = "~0.7"
+futures = "0.1.14"
+tokio-core = "0.1"
