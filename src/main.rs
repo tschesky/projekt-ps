@@ -7,6 +7,7 @@ use std::io::Read;
 
 use getopts::Options;
 use std::result;
+use std::str;
 
 use std::error::Error;
 use std::io::prelude::*;
@@ -17,6 +18,7 @@ extern crate futures;
 extern crate tokio_core;
 extern crate hyper_tls;
 extern crate pretty_env_logger;
+extern crate ftp;
 
 use std::env;
 use std::io::{self, Write};
@@ -79,20 +81,81 @@ fn main() {
     		return;
     };
 
-    let url = input;
+    let url = input.clone();
     let url = url.parse::<hyper::Uri>().unwrap();
 
     match url.scheme(){
     	Some("http") => http_download_single_file(url, &dest.unwrap()[..]),
     	Some("https") => https_download_single_file(url, &dest.unwrap()[..]),
-    	Some("ftp") => ftp_download_single_file(url, &dest.unwrap()[..]),
+    	Some("ftp") => ftp_download_single_file(input, &dest.unwrap()[..]),
     	Some(&_) => panic!("Sorry, unknown protocol!"),
     	None => panic!("Sorry, no protocol given!"),
     }
 }
 
-fn ftp_download_single_file(url: hyper::Uri,  destination: &str){
-	
+fn ftp_download_single_file(input: std::string::String,  destination: &str){
+		use ftp::FtpStream;
+		use std::io::Cursor;
+
+		let mut replace = input.replace("ftp://", "");
+		let mut split: Vec<&str> = replace.split("/").collect();
+
+		let host = split.first().unwrap();
+		let proper_host = format!("{}:21", host);
+		let file = split.last().unwrap();
+		let directory = split[1..split.len()-1].join("/");
+
+		println!("{}", proper_host);
+		println!("{}", file);
+		println!("{}", directory);
+
+		// Create a connection to an FTP server and authenticate to it.
+    let mut ftp_stream = FtpStream::connect(proper_host).unwrap_or_else(|err|
+    		panic!("{}", err)
+    );
+
+    let _ = ftp_stream.login("anonymous", "").unwrap();
+
+    // Get the current directory that the client will be reading from and writing to.
+    println!("Current directory: {}", ftp_stream.pwd().unwrap());
+    
+    // Change into a new directory, relative to the one we are currently in.
+    let _ = ftp_stream.cwd(&directory[..]).unwrap();
+
+    println!("Current directory: {}", ftp_stream.pwd().unwrap());
+
+    let path = Path::new(file);
+    let display = path.display();
+
+    
+
+
+    ftp_stream.retr(file, |stream| {
+		    let mut buf = Vec::new();
+		    // Open a file in write-only mode, returns `io::Result<File>`
+		    let mut local_file = match File::create(&path) {
+		        Err(why) => panic!("couldn't create {}: {}",
+		                           display,
+		                           why.description()),
+		        Ok(file) => file,
+		    };
+		    stream.read_to_end(&mut buf).map(|_|
+		        match local_file.write_all(&buf)  {
+    					Err(why) => {
+			            panic!("couldn't write to {}: {}", display,
+			                                               why.description())
+			        },
+			        Ok(_) => (),
+    	}
+		    ).map_err(|e| ftp::types::FtpError::ConnectionError(e))
+		});
+
+    // Retrieve (GET) a file from the FTP server in the current working directory.
+    // let remote_file = ftp_stream.simple_retr("file").unwrap();
+    // println!("Read file with contents\n{}\n", str::from_utf8(&remote_file.into_inner()).unwrap());
+
+    // Terminate the connection to the server.
+    let _ = ftp_stream.quit();
 }
 
 // Function that uses futures
