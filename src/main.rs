@@ -1,34 +1,23 @@
-// Use getops
 extern crate getopts;
-
 extern crate hyper;
-
-use std::io::Read;
-
-use getopts::Options;
-use std::result;
-use std::str;
-
-use std::error::Error;
-use std::io::prelude::*;
-use std::fs::File;
-use std::path::Path;
-
 extern crate futures;
 extern crate tokio_core;
 extern crate hyper_tls;
 extern crate pretty_env_logger;
 extern crate ftp;
-use std::io::{stdin,stdout};
 
+use std::io::Read;
+use getopts::Options;
+use std::str;
+use std::error::Error;
+use std::fs::File;
+use std::path::Path;
+use std::io::stdin;
 use std::env;
 use std::io::{self, Write};
-
 use futures::Future;
 use futures::stream::Stream;
-
 use hyper::Client;
-
 use ftp::FtpStream;
 
 
@@ -92,10 +81,16 @@ fn main() {
     	Some("http") => http_download_single_file(url, &dest[..]),
     	Some("https") => https_download_single_file(url, &dest[..]),
     	Some("ftp") => ftp_download_single_file(input, &dest[..]),
+    	// Some("ftps") => ftps_download_single_file(input, &dest[..]),
     	Some(&_) => panic!("Sorry, unknown protocol!"),
     	None => panic!("Sorry, no protocol given!"),
     }
 }
+
+// Download a single file form FTP server
+// fn ftps_download_single_file(input: std::string::String,  destination: &str){
+
+// }
 
 
 // Download a single file form FTP server
@@ -108,7 +103,7 @@ fn ftp_download_single_file(input: std::string::String,  destination: &str){
     );
 
     // Set transfer_type to binary so we can properly transport images
-    ftp_stream.transfer_type(ftp::types::FileType::Binary);
+    let _ = ftp_stream.transfer_type(ftp::types::FileType::Binary);
 
     let (user, password) = parse_userdata_from_ftp_fullpath(input);
     let _ = ftp_stream.login(&user[..], &password[..]).unwrap();
@@ -120,7 +115,7 @@ fn ftp_download_single_file(input: std::string::String,  destination: &str){
     let display = path.display();
 
 
-    let mut reader = ftp_stream.get(&file).unwrap();
+    let reader = ftp_stream.get(&file).unwrap();
     let iterator = reader.bytes();
 
     //Open a file in write-only mode, returns `io::Result<File>`
@@ -142,7 +137,7 @@ fn ftp_download_single_file(input: std::string::String,  destination: &str){
 			};
     }
 
-    local_file.flush();
+    let _ = local_file.flush();
 
     //  -- BufReader, iteracja po byte'ach --
    	//  let mut reader = ftp_stream.get(file).unwrap();
@@ -178,7 +173,7 @@ fn ftp_download_single_file(input: std::string::String,  destination: &str){
     let _ = ftp_stream.quit();
 }
 
-
+#[allow(dead_code)]
 fn read_n<R>(reader: R, bytes_to_read: u64) -> Result<Vec<u8>, i32>
     where R: Read,
 {
@@ -194,6 +189,8 @@ fn read_n<R>(reader: R, bytes_to_read: u64) -> Result<Vec<u8>, i32>
 }
 
 // Function that uses futures
+#[allow(dead_code)]
+#[allow(unused_variables, unused_mut)]
 fn http_download_single_file_work(url: hyper::Uri,  destination: &str){
 
     let mut core = tokio_core::reactor::Core::new().unwrap();
@@ -298,15 +295,15 @@ fn https_download_single_file(url: hyper::Uri, destination: &str){
 }
 
 fn extract_file_name_if_empty_string(fullpath: std::string::String) -> std::string::String {
-			let mut split: Vec<&str> = fullpath.split("/").collect();
+			let split: Vec<&str> = fullpath.split("/").collect();
 			std::string::String::from(*split.last().unwrap())
 }
 
 fn parse_data_from_ftp_fullpath(input: std::string::String) -> (std::string::String, std::string::String, std::string::String){
-		let mut replace = input.replace("ftp://", "");
-		let mut split: Vec<&str> = replace.split("/").collect();
-		let mut split2 = split.clone();
-		let mut split3: Vec<&str> = split2.first().unwrap().split("@").collect();
+		let replace = input.replace("ftp://", "");
+		let split: Vec<&str> = replace.split("/").collect();
+		let split2 = split.clone();
+		let split3: Vec<&str> = split2.first().unwrap().split("@").collect();
 
 		let host = split3.last().unwrap();
 		let proper_host = format!("{}:21", host);
@@ -317,13 +314,13 @@ fn parse_data_from_ftp_fullpath(input: std::string::String) -> (std::string::Str
 }
 
 fn parse_userdata_from_ftp_fullpath(input: std::string::String) -> (std::string::String, std::string::String){
-		let mut replace = input.replace("ftp://", "");
+		let replace = input.replace("ftp://", "");
 		let mut username = std::string::String::new();
 		let mut password = std::string::String::new();
 
 		if replace.contains("@") {
-				let mut split: Vec<&str> = replace.split("@").collect();
-				let mut split2: Vec<&str> = split.first().unwrap().split(":").collect();
+				let split: Vec<&str> = replace.split("@").collect();
+				let split2: Vec<&str> = split.first().unwrap().split(":").collect();
 				username = std::string::String::from(*split2.first().unwrap()).clone();
 				password = std::string::String::from(*split2.last().unwrap()).clone();
 		} else {
