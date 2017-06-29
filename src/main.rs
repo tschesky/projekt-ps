@@ -19,6 +19,7 @@ extern crate tokio_core;
 extern crate hyper_tls;
 extern crate pretty_env_logger;
 extern crate ftp;
+use std::io::{stdin,stdout};
 
 use std::env;
 use std::io::{self, Write};
@@ -27,6 +28,8 @@ use futures::Future;
 use futures::stream::Stream;
 
 use hyper::Client;
+
+use ftp::FtpStream;
 
 
 fn main() {
@@ -97,32 +100,27 @@ fn main() {
 
 // Download a single file form FTP server
 fn ftp_download_single_file(input: std::string::String,  destination: &str){
-		use ftp::FtpStream;
-		use std::io::Cursor;
-
-		
+		let (host, directory, file) = parse_data_from_ftp_fullpath(input.clone());
 
 		// Create a connection to an FTP server and authenticate to it.
-    let mut ftp_stream = FtpStream::connect(proper_host).unwrap_or_else(|err|
+    let mut ftp_stream = FtpStream::connect(host).unwrap_or_else(|err|
     		panic!("{}", err)
     );
+
+    // Set transfer_type to binary so we can properly transport images
     ftp_stream.transfer_type(ftp::types::FileType::Binary);
 
-    let _ = ftp_stream.login("demo", "password").unwrap();
-
-    // Get the current directory that the client will be reading from and writing to.
-    println!("Current directory: {}", ftp_stream.pwd().unwrap());
+    let (user, password) = parse_userdata_from_ftp_fullpath(input);
+    let _ = ftp_stream.login(&user[..], &password[..]).unwrap();
     
     // Change into a new directory, relative to the one we are currently in.
     let _ = ftp_stream.cwd(&directory[..]).unwrap();
 
-    println!("Current directory: {}", ftp_stream.pwd().unwrap());
-
-    let path = Path::new(file);
+    let path = Path::new(destination);
     let display = path.display();
 
 
-    let mut reader = ftp_stream.get(file).unwrap();
+    let mut reader = ftp_stream.get(&file).unwrap();
     let iterator = reader.bytes();
 
     //Open a file in write-only mode, returns `io::Result<File>`
@@ -307,13 +305,45 @@ fn extract_file_name_if_empty_string(fullpath: std::string::String) -> std::stri
 fn parse_data_from_ftp_fullpath(input: std::string::String) -> (std::string::String, std::string::String, std::string::String){
 		let mut replace = input.replace("ftp://", "");
 		let mut split: Vec<&str> = replace.split("/").collect();
+		let mut split2 = split.clone();
+		let mut split3: Vec<&str> = split2.first().unwrap().split("@").collect();
 
-		let host = split.first().unwrap();
+		let host = split3.last().unwrap();
 		let proper_host = format!("{}:21", host);
 		let file = split.last().unwrap();
 		let directory = split[1..split.len()-1].join("/");
 
-		println!("{}", proper_host);
-		println!("{}", file);
-		println!("{}", directory);
+		(proper_host, directory, std::string::String::from(*file))
+}
+
+fn parse_userdata_from_ftp_fullpath(input: std::string::String) -> (std::string::String, std::string::String){
+		let mut replace = input.replace("ftp://", "");
+		let mut username = std::string::String::new();
+		let mut password = std::string::String::new();
+
+		if replace.contains("@") {
+				let mut split: Vec<&str> = replace.split("@").collect();
+				let mut split2: Vec<&str> = split.first().unwrap().split(":").collect();
+				username = std::string::String::from(*split2.first().unwrap()).clone();
+				password = std::string::String::from(*split2.last().unwrap()).clone();
+		} else {
+				println!("User: ");
+				stdin().read_line(&mut username).expect("Did not enter a correct string");
+		    if let Some('\n')=username.chars().next_back() {
+		        username.pop();
+		    }
+		    if let Some('\r')=username.chars().next_back() {
+		        username.pop();
+		    }
+				println!("Password: ");
+				stdin().read_line(&mut password).expect("Did not enter a correct string");
+		    if let Some('\n')=password.chars().next_back() {
+		        password.pop();
+		    }
+		    if let Some('\r')=password.chars().next_back() {
+		        password.pop();
+		    }
+		}
+
+		(username, password)
 }
